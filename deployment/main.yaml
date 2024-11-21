@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: urcheckin
+  namespace: urcheckin
+  labels:
+    app: urcheckin
+spec:
+  serviceName: urcheckin
+  replicas: 1
+  selector:
+    matchLabels:
+      app: urcheckin
+  template:
+    metadata:
+      labels:
+        app: urcheckin
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/role: 'urcheckin-dev'
+        vault.hashicorp.com/agent-pre-populate-only: 'true'
+        vault.hashicorp.com/agent-inject-secret-env-config: 'kv/urcheckin-dev'
+        vault.hashicorp.com/agent-inject-template-env-config: |
+           {{ with secret "kv/urcheckin-dev" -}}
+              {{- range $key, $value := .Data.data }}
+                export {{ $key }}="{{ $value }}"
+              {{- end }}
+            {{- end }}
+    spec:
+      serviceAccountName: urcheckin-dev-auth
+      containers:
+        - name: urcheckin
+          image: ideavn/urcheckin:{latest}
+          resources:
+            limits:
+              cpu: 200m
+              memory: 300Mi
+            requests:
+              cpu: 50m
+              memory: 256Mi
