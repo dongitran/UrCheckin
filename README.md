@@ -1,6 +1,6 @@
 # UrCheckin 🤖
 
-> Your friendly automated check-in/check-out assistant! Never miss another punch-in again! ✨
+> Your friendly automated check-in/check-out assistant! ✨
 
 ## 🚀 What's This?
 
