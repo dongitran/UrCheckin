@@ -1,7 +1,9 @@
 import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import Account from "../models/account.model.js";
+import User from "../models/user.model.js";
 import { encrypt } from "./encryption.service.js";
+import { getRecaptcha } from "./auth.service.js";
 
 dotenv.config();
 
@@ -112,17 +114,6 @@ Example: /login dongtran@test.com yourpassword`
               },
             }
           );
-          await this.bot.sendMessage(
-            chatId,
-            `✅ Account updated successfully!
-
-🔒 Security Information:
-• Your password has been securely encrypted
-• No one can access your original password
-• All data is stored using AES-256 encryption
-
-Your information is safe with us! 🛡️`
-          );
         } else {
           await Account.create({
             userId,
@@ -130,21 +121,50 @@ Your information is safe with us! 🛡️`
             password: encryptedPassword,
             userName,
           });
-          await this.bot.sendMessage(
-            chatId,
-            `✅ Account created successfully!
+        }
+
+        const token = await getRecaptcha();
+
+        const existingUser = await User.findOne({ email });
+        if (existingUser) {
+          if (existingUser.userId !== userId) {
+            throw "This email is already registered with a different user";
+          }
+          await User.updateOne(
+            { email },
+            {
+              $set: {
+                token,
+                status: "activated",
+              },
+            }
+          );
+        } else {
+          await User.create({
+            email,
+            userId,
+            token,
+            status: "activated",
+          });
+        }
+
+        await this.bot.sendMessage(
+          chatId,
+          `✅ Account ${existingAccount ? "updated" : "created"} successfully!
 
 🔒 Security Information:
 • Your password has been securely encrypted
-• No one can access your original password
+• Your authentication token has been generated
 • All data is stored using AES-256 encryption
 
 Your information is safe with us! 🛡️`
-          );
-        }
+        );
       } catch (error) {
-        console.log("Login error:", error);
-        await this.bot.sendMessage(chatId, `❌ Error: ${error}`);
+        console.error("Login error:", error);
+        await this.bot.sendMessage(
+          chatId,
+          `❌ Error: ${error.message || error}`
+        );
       }
     });
   }
