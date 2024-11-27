@@ -7,8 +7,15 @@ import User from "./models/user.model.js";
 import Log from "./models/log.model.js";
 import { getAccessToken } from "./services/token.service.js";
 import { performCheckin } from "./services/checkin.service.js";
+import telegramService from "./services/telegram.service.js";
 
 dotenv.config();
+
+try {
+  telegramService;
+} catch (error) {
+  console.error("errorInitTelegram", error);
+}
 
 async function processCheckin() {
   try {
