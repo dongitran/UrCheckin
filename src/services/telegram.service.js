@@ -125,6 +125,13 @@ Example: /login dongtran@test.com yourpassword`
       const userId = msg.from.id.toString();
       const userName = msg.from.username || msg.from.first_name;
 
+      await this.bot.sendMessage(
+        chatId,
+        `⏳ Processing your request...
+
+Your login information is being securely processed. Please wait a moment.`
+      );
+
       try {
         const canLogin = await this.checkLoginAttempts(userId);
         if (!canLogin) {
@@ -193,7 +200,6 @@ Example: /login dongtran@test.com yourpassword`
 
 🔒 Security Information:
 • Your password has been securely encrypted
-• Your authentication token has been generated
 • All data is stored using AES-256 encryption
 
 Your information is safe with us! 🛡️`
