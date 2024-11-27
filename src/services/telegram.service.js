@@ -2,6 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import dotenv from "dotenv";
 import Account from "../models/account.model.js";
 import User from "../models/user.model.js";
+import LoginAttempt from "../models/loginAttempt.model.js";
 import { encrypt } from "./encryption.service.js";
 import { getRecaptcha } from "./auth.service.js";
 
@@ -17,6 +18,39 @@ class TelegramService {
     });
     this.chatIds = new Set();
     this.initializeCommands();
+  }
+
+  async checkLoginAttempts(userId) {
+    const today = new Date().toISOString().split("T")[0];
+
+    try {
+      const loginAttempt = await LoginAttempt.findOne({
+        userId,
+        date: today,
+      });
+
+      if (!loginAttempt) {
+        await LoginAttempt.create({
+          userId,
+          date: today,
+          count: 1,
+        });
+        return true;
+      }
+
+      if (loginAttempt.count >= 5) {
+        return false;
+      }
+
+      await LoginAttempt.updateOne(
+        { userId, date: today },
+        { $inc: { count: 1 } }
+      );
+      return true;
+    } catch (error) {
+      console.error("Error checking login attempts:", error);
+      throw error;
+    }
   }
 
   initializeCommands() {
@@ -92,6 +126,11 @@ Example: /login dongtran@test.com yourpassword`
       const userName = msg.from.username || msg.from.first_name;
 
       try {
+        const canLogin = await this.checkLoginAttempts(userId);
+        if (!canLogin) {
+          throw "You have exceeded the maximum login attempts (5) for today. Please try again tomorrow.";
+        }
+
         const params = match[1].split(" ");
         if (params.length !== 2) {
           throw "Invalid format. Use: /login email password";
