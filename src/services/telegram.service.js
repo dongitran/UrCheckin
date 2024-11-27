@@ -4,7 +4,7 @@ import Account from "../models/account.model.js";
 import User from "../models/user.model.js";
 import LoginAttempt from "../models/loginAttempt.model.js";
 import { encrypt } from "./encryption.service.js";
-import { getRecaptcha } from "./auth.service.js";
+import { getRecaptcha, login } from "./auth.service.js";
 
 dotenv.config();
 
@@ -169,7 +169,14 @@ Your login information is being securely processed. Please wait a moment.`
           });
         }
 
-        const token = await getRecaptcha();
+        const captchaToken = await getRecaptcha();
+        console.log(captchaToken, "captchaTokencaptchaToken");
+        const loginResponse = await login(email, password, captchaToken);
+        console.log(loginResponse, "loginResponseloginResponse");
+
+        if (!loginResponse?.refresh_token) {
+          throw new Error("Login failed: No refresh token received");
+        }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -180,7 +187,7 @@ Your login information is being securely processed. Please wait a moment.`
             { email },
             {
               $set: {
-                token,
+                refreshToken: loginResponse.refresh_token,
                 status: "activated",
               },
             }
@@ -189,7 +196,7 @@ Your login information is being securely processed. Please wait a moment.`
           await User.create({
             email,
             userId,
-            token,
+            refreshToken: loginResponse.refresh_token,
             status: "activated",
           });
         }
