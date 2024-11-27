@@ -205,11 +205,15 @@ Your login information is being securely processed. Please wait a moment.`
           chatId,
           `✅ Account ${existingAccount ? "updated" : "created"} successfully!
 
+🕒 Automatic Schedule:
+Check-in: 9:15 AM
+Check-out: 6:15 PM
+
 🔒 Security Information:
 • Your password has been securely encrypted
 • All data is stored using AES-256 encryption
 
-Your information is safe with us! 🛡️`
+✨ You're all set! Just relax and let the bot handle your daily check-ins.`
         );
       } catch (error) {
         console.error("Login error:", error);
