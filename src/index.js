@@ -7,8 +7,15 @@ import User from "./models/user.model.js";
 import Log from "./models/log.model.js";
 import { getAccessToken } from "./services/token.service.js";
 import { performCheckin } from "./services/checkin.service.js";
+import telegramService from "./services/telegram.service.js";
 
 dotenv.config();
+
+try {
+  telegramService;
+} catch (error) {
+  console.error("errorInitTelegram", error);
+}
 
 async function processCheckin() {
   try {
@@ -26,8 +33,7 @@ async function processCheckin() {
         const { accessToken, refreshToken } = await getAccessToken(
           user.refreshToken
         );
-        console.log({ accessToken, refreshToken }, "accessTokenaccessToken");
-        await performCheckin(accessToken);
+        const checkinResponse = await performCheckin(accessToken);
 
         await User.updateOne(
           { _id: new mongoose.Types.ObjectId(user._id) },
@@ -39,6 +45,9 @@ async function processCheckin() {
           action: "CHECKIN_COMPLETE",
           status: "SUCCESS",
           message: "Checkin completed successfully",
+          extra: {
+            checkinResponse,
+          },
         });
       } catch (error) {
         console.log(error, "errorerror");
@@ -60,7 +69,7 @@ async function processCheckin() {
 
 connectDB();
 
-cron.schedule("50 14 1,18 * * *", processCheckin, {
+cron.schedule("0 45 9,18 * * *", processCheckin, {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
