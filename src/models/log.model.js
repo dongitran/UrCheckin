@@ -17,7 +17,7 @@ const logSchema = new mongoose.Schema({
   message: String,
   extra: {
     type: mongoose.Schema.Types.Mixed,
-    default: {}
+    default: {},
   },
   timestamp: {
     type: Date,
