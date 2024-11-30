@@ -48,6 +48,17 @@ jobs:
           LAT: ${{ secrets.LAT }}
           LNG: ${{ secrets.LNG }}
           DEVICE_ID: ${{ secrets.DEVICE_ID }}
+          
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          REQUEST_URL: ${{ secrets.REQUEST_URL }}
+          CHECK_URL: ${{ secrets.CHECK_URL }}
+          CLIENT_KEY: ${{ secrets.CLIENT_KEY }}
+          URL: ${{ secrets.URL }}
+          W_KEY: ${{ secrets.W_KEY }}
+          TYPE: ${{ secrets.TYPE }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CODE: ${{ secrets.CODE }}
+          URL_LOGIN: ${{ secrets.URL_LOGIN }}
         run: |
           kubectl exec -n vault -i vault-0 -- vault kv put \
             kv/urcheckin-dev \
@@ -57,7 +68,17 @@ jobs:
             CLIENT_ID="${CLIENT_ID}" \
             LAT="${LAT}" \
             LNG="${LNG}" \
-            DEVICE_ID="${DEVICE_ID}"
+            DEVICE_ID="${DEVICE_ID}" \
+            TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
+            REQUEST_URL="${REQUEST_URL}" \
+            CHECK_URL="${CHECK_URL}" \
+            CLIENT_KEY="${CLIENT_KEY}" \
+            URL="${URL}" \
+            W_KEY="${W_KEY}" \
+            TYPE="${TYPE}" \
+            ENCRYPTION_KEY="${ENCRYPTION_KEY}" \
+            CODE="${CODE}" \
+            URL_LOGIN="${URL_LOGIN}"
 
           kubectl exec -n vault -i vault-0 -- vault policy write urcheckin-svc-policy - <<EOH
           path "kv/data/urcheckin-dev" {
