@@ -21,6 +21,8 @@ I'm a UrCheckin Bot. Use the following commands to interact:
 • This is a research project
 • We are not responsible for any issues that may arise from using this bot
 • Use at your own discretion
+
+❓ Need help? Contact @dongtranthien for support.
   `;
 
   return ctx.reply(welcomeMessage);
@@ -46,10 +48,10 @@ Example: /login example@email.com yourpassword
 🔒 Security Information:
 • All user data is encrypted using AES-256 encryption
 
-⚠️ Important Notice:
-• This bot is created for research purposes only
-• We assume no liability for any issues or damages
-• By using this bot, you acknowledge these terms
+⚠️ Disclaimer:
+• This is a research project
+• We are not responsible for any issues that may arise from using this bot
+• Use at your own discretion
 
 ❓ Need help? Contact @dongtranthien for support.
   `;
