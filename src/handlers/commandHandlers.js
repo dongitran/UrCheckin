@@ -23,7 +23,7 @@ Hello ${username}! 👋
 ⚠️ Disclaimer:
 • This is a research project
 • We are not responsible for any issues that may arise from using this bot
-• Use at your own discretion
+• By using this bot, you acknowledge these terms
 
 ❓ Need help? Contact @dongtranthien for support.
   `;
@@ -54,7 +54,7 @@ Example: /login example@email.com yourpassword
 ⚠️ Disclaimer:
 • This is a research project
 • We are not responsible for any issues that may arise from using this bot
-• Use at your own discretion
+• By using this bot, you acknowledge these terms
 
 ❓ Need help? Contact @dongtranthien for support.
   `;
