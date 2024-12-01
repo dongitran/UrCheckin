@@ -175,7 +175,9 @@ Your login information is being securely processed. Please wait a moment.`
         console.log(loginResponse, "loginResponseloginResponse");
 
         if (!loginResponse?.refresh_token) {
-          throw new Error("Login failed: No refresh token received");
+          throw new Error(
+            "The email or password might be incorrect, please check again. If you're sure the information is correct, please contact @dongtranthien"
+          );
         }
 
         const existingUser = await User.findOne({ email });
