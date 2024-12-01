@@ -51,8 +51,6 @@ function getRandomDelay(min, max) {
   return Math.floor(Math.random() * (max - min + 1) + min) * 1000;
 }
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const initialDelay = getRandomDelay(120, 460);
-await delay(initialDelay);
 
 async function processCheckin(checkTime) {
   try {
@@ -64,6 +62,9 @@ async function processCheckin(checkTime) {
       dateOff: new Date(today),
       deletedAt: null,
     });
+
+    const initialDelay = getRandomDelay(120, 460);
+    await delay(initialDelay);
 
     for (const user of users) {
       if (!(await shouldProcessUser(user, timeOffRequests, checkTime))) {
