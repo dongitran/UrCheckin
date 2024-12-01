@@ -1,8 +1,9 @@
-import TelegramBot from "node-telegram-bot-api";
+import { Telegraf, Markup } from "telegraf";
 import dotenv from "dotenv";
 import Account from "../models/account.model.js";
 import User from "../models/user.model.js";
 import LoginAttempt from "../models/loginAttempt.model.js";
+import RequestOff from "../models/requestOff.model.js";
 import { encrypt } from "./encryption.service.js";
 import { getRecaptcha, login } from "./auth.service.js";
 
@@ -13,11 +14,100 @@ class TelegramService {
     if (!process.env.TELEGRAM_BOT_TOKEN) {
       throw new Error("TELEGRAM_BOT_TOKEN is required");
     }
-    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-      polling: true,
-    });
-    this.chatIds = new Set();
+
+    this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
     this.initializeCommands();
+    this.bot.launch();
+
+    process.once("SIGINT", () => this.bot.stop("SIGINT"));
+    process.once("SIGTERM", () => this.bot.stop("SIGTERM"));
+  }
+
+  generateDateButtons(startDate = new Date()) {
+    const buttons = [];
+    const dateRow = [];
+
+    for (let i = 0; i < 15; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+
+      if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+      const formattedDate = date.toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+      });
+
+      dateRow.push(
+        Markup.button.callback(
+          formattedDate,
+          `date_${date.toISOString().split("T")[0]}`
+        )
+      );
+
+      if (dateRow.length === 3 || i === 14) {
+        buttons.push([...dateRow]);
+        dateRow.length = 0;
+      }
+    }
+    buttons.push([...dateRow]);
+    return buttons;
+  }
+
+  generateTimeOptions(selectedDate) {
+    return Markup.inlineKeyboard([
+      [
+        Markup.button.callback(
+          "🌅 Morning (8:00 AM - 12:00 PM)",
+          `time_morning_${selectedDate}`
+        ),
+      ],
+      [
+        Markup.button.callback(
+          "🌇 Afternoon (1:00 PM - 5:00 PM)",
+          `time_afternoon_${selectedDate}`
+        ),
+      ],
+      [Markup.button.callback("📅 Full Day", `time_fullday_${selectedDate}`)],
+    ]);
+  }
+
+  async getUpcomingRequests(userId) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcomingRequests = await RequestOff.find({
+      userId,
+      dateOff: { $gte: today },
+      status: { $ne: "REJECTED" },
+    }).sort({ dateOff: 1 });
+
+    if (upcomingRequests.length === 0) {
+      return "You have no upcoming time-off requests.";
+    }
+
+    const formatRequest = (request) => {
+      const date = new Date(request.dateOff).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+
+      const timeText = {
+        MORNING: "Morning (8:00 AM - 12:00 PM)",
+        AFTERNOON: "Afternoon (1:00 PM - 5:00 PM)",
+        FULL_DAY: "Full Day",
+      }[request.timeOffType];
+
+      return `📅 ${date} - ${timeText}\n🔸 Status: ${request.status}`;
+    };
+
+    return (
+      "📋 Your upcoming time-off requests:\n\n" +
+      upcomingRequests.map(formatRequest).join("\n\n")
+    );
   }
 
   async checkLoginAttempts(userId) {
@@ -54,17 +144,15 @@ class TelegramService {
   }
 
   initializeCommands() {
-    this.bot.onText(/\/start/, (msg) => {
-      const chatId = msg.chat.id;
-      const username = msg.from.username || msg.from.first_name;
-      this.chatIds.add(chatId);
-
+    this.bot.command("start", (ctx) => {
+      const username = ctx.from.username || ctx.from.first_name;
       const welcomeMessage = `
 Hello ${username}! 👋
 I'm a Checkin Management Bot. Use the following commands to interact:
 
 /help - View all commands
 /login <email> <password> - Login with your credentials
+/requestoff - Select a date to request off
 
 🔒 Security Notice:
 • Your information is securely encrypted and protected
@@ -77,19 +165,17 @@ I'm a Checkin Management Bot. Use the following commands to interact:
 • Use at your own discretion
       `;
 
-      this.bot.sendMessage(chatId, welcomeMessage);
+      return ctx.reply(welcomeMessage);
     });
 
-    this.bot.onText(/\/help/, (msg) => {
-      const chatId = msg.chat.id;
-      this.chatIds.add(chatId);
-
+    this.bot.command("help", (ctx) => {
       const helpMessage = `
 📌 Available Commands:
 
 /start - Start using the bot
 /help - View command list
 /login <email> <password> - Login with your credentials
+/requestoff - Select a date to request off
 
 Example: /login example@email.com yourpassword
 
@@ -106,31 +192,124 @@ Example: /login example@email.com yourpassword
 ❓ Need help? Contact the administrator for support.
       `;
 
-      this.bot.sendMessage(chatId, helpMessage);
+      return ctx.reply(helpMessage);
     });
 
-    this.bot.onText(/^\/login$/, (msg) => {
-      const chatId = msg.chat.id;
-      this.bot.sendMessage(
-        chatId,
-        `❌ Missing email and password!
+    this.bot.command("requestoff", async (ctx) => {
+      try {
+        const dateButtons = this.generateDateButtons();
+        return ctx.reply(
+          "Please select a date for your day off request (next 15 working days):",
+          Markup.inlineKeyboard(dateButtons)
+        );
+      } catch (error) {
+        console.error("Error sending calendar:", error);
+        return ctx.reply("Sorry, there was an error processing your request.");
+      }
+    });
+
+    this.bot.action(/date_(\d{4}-\d{2}-\d{2})/, async (ctx) => {
+      try {
+        const selectedDate = ctx.match[1];
+        const formattedDate = new Date(selectedDate).toLocaleDateString(
+          "en-GB",
+          {
+            weekday: "long",
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          }
+        );
+
+        await ctx.editMessageText(
+          `📅 Selected date: ${formattedDate}\n\nPlease select time option:`,
+          this.generateTimeOptions(selectedDate)
+        );
+
+        await ctx.answerCbQuery();
+      } catch (error) {
+        console.error("Error handling date selection:", error);
+        return ctx.reply(
+          "Sorry, there was an error processing your selection."
+        );
+      }
+    });
+
+    this.bot.action(
+      /time_(morning|afternoon|fullday)_(\d{4}-\d{2}-\d{2})/,
+      async (ctx) => {
+        try {
+          const [_, timeOption, selectedDate] = ctx.match;
+          const userId = ctx.from.id.toString();
+
+          const timeOffTypeMap = {
+            morning: "MORNING",
+            afternoon: "AFTERNOON",
+            fullday: "FULL_DAY",
+          };
+
+          await RequestOff.create({
+            userId,
+            dateOff: new Date(selectedDate),
+            timeOffType: timeOffTypeMap[timeOption],
+          });
+
+          const formattedDate = new Date(selectedDate).toLocaleDateString(
+            "en-GB",
+            {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            }
+          );
+
+          const timeOptionText = {
+            morning: "Morning (8:00 AM - 12:00 PM)",
+            afternoon: "Afternoon (1:00 PM - 5:00 PM)",
+            fullday: "Full Day",
+          }[timeOption];
+
+          const upcomingRequestsMessage = await this.getUpcomingRequests(userId);
+
+          await ctx.editMessageText(
+            `✅ Your day off request has been submitted and saved:\n\n` +
+              `📅 Date: ${formattedDate}\n` +
+              `⏰ Time: ${timeOptionText}\n` +
+              `Status: Pending approval\n\n` +
+              `━━━━━━━━━━━━━━━━\n\n` +
+              upcomingRequestsMessage,
+            { reply_markup: { inline_keyboard: [] } }
+          );
+
+          await ctx.answerCbQuery();
+        } catch (error) {
+          console.error("Error handling time selection:", error);
+          return ctx.reply(
+            "Sorry, there was an error processing your selection."
+          );
+        }
+      }
+    );
+
+    this.bot.command("login", async (ctx) => {
+      const message = ctx.message.text;
+      const parts = message.split(" ");
+
+      if (parts.length !== 3) {
+        return ctx.reply(`❌ Invalid format!
 
 Please use the format: /login email password
-Example: /login dongtran@test.com yourpassword`
-      );
-    });
+Example: /login dongtran@test.com yourpassword`);
+      }
 
-    this.bot.onText(/\/login (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const userId = msg.from.id.toString();
-      const userName = msg.from.username || msg.from.first_name;
+      const [_, email, password] = parts;
+      const userId = ctx.from.id.toString();
+      const userName = ctx.from.username || ctx.from.first_name;
 
-      await this.bot.sendMessage(
-        chatId,
-        `⏳ Processing your request...
+      await ctx.reply(`⏳ Processing your request...
 
-Your login information is being securely processed. Please wait a moment.`
-      );
+Your login information is being securely processed. Please wait a moment.`);
 
       try {
         const canLogin = await this.checkLoginAttempts(userId);
@@ -138,15 +317,7 @@ Your login information is being securely processed. Please wait a moment.`
           throw "You have exceeded the maximum login attempts (5) for today. Please try again tomorrow.";
         }
 
-        const params = match[1].split(" ");
-        if (params.length !== 2) {
-          throw "Invalid format. Use: /login email password";
-        }
-
-        const [email, password] = params;
-
         const encryptedPassword = encrypt(password);
-
         const existingAccount = await Account.findOne({ userId });
 
         if (existingAccount) {
@@ -170,9 +341,7 @@ Your login information is being securely processed. Please wait a moment.`
         }
 
         const captchaToken = await getRecaptcha();
-        console.log(captchaToken, "captchaTokencaptchaToken");
         const loginResponse = await login(email, password, captchaToken);
-        console.log(loginResponse, "loginResponseloginResponse");
 
         if (!loginResponse?.refresh_token) {
           throw new Error(
@@ -203,9 +372,9 @@ Your login information is being securely processed. Please wait a moment.`
           });
         }
 
-        await this.bot.sendMessage(
-          chatId,
-          `✅ Account ${existingAccount ? "updated" : "created"} successfully!
+        return ctx.reply(`✅ Account ${
+          existingAccount ? "updated" : "created"
+        } successfully!
 
 🕒 Automatic Schedule:
 Check-in: 9:15 AM
@@ -215,14 +384,10 @@ Check-out: 6:15 PM
 • Your password has been securely encrypted
 • All data is stored using AES-256 encryption
 
-✨ You're all set! Just relax and let the bot handle your daily check-ins.`
-        );
+✨ You're all set! Just relax and let the bot handle your daily check-ins.`);
       } catch (error) {
         console.error("Login error:", error);
-        await this.bot.sendMessage(
-          chatId,
-          `❌ Error: ${error.message || error}`
-        );
+        return ctx.reply(`❌ Error: ${error.message || error}`);
       }
     });
   }
