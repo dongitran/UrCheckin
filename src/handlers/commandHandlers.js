@@ -4,7 +4,7 @@ export const startHandler = (ctx) => {
   const username = ctx.from.username || ctx.from.first_name;
   const welcomeMessage = `
 Hello ${username}! 👋
-I'm a Checkin Management Bot. Use the following commands to interact:
+I'm a UrCheckin Bot. Use the following commands to interact:
 
 📌 Available Commands:
 /start - Start using the bot
