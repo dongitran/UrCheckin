@@ -6,10 +6,13 @@ export const startHandler = (ctx) => {
 Hello ${username}! 👋
 I'm a Checkin Management Bot. Use the following commands to interact:
 
+📌 Available Commands:
+/start - Start using the bot
 /help - View all commands
 /login <email> <password> - Login with your credentials
 /request_off - Select a date to request off
 /my_days_off - View your days off schedule
+/cancel_request_off - Cancel an upcoming time-off request
 
 🔒 Security Notice:
 • Your information is securely encrypted and protected
@@ -34,8 +37,13 @@ export const helpHandler = (ctx) => {
 /login <email> <password> - Login with your credentials
 /request_off - Select a date to request off
 /my_days_off - View your days off schedule
+/cancel_request_off - Cancel an upcoming time-off request
 
 Example: /login example@email.com yourpassword
+
+⏰ Automatic Check-in Schedule:
+• Check-in: ~9:15 AM
+• Check-out: ~6:15 PM
 
 🔒 Security Information:
 • All user data is encrypted using AES-256 encryption
@@ -66,12 +74,10 @@ export const listRequestsHandler = async (ctx, telegramService) => {
     }
 
     const formatRequest = (request) => {
-      // Format weekday
       const weekday = new Date(request.dateOff).toLocaleDateString("en-GB", {
         weekday: "long",
       });
 
-      // Format date as DD/MM/YYYY
       const day = new Date(request.dateOff)
         .getDate()
         .toString()
