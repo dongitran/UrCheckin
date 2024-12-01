@@ -80,7 +80,7 @@ class TelegramService {
     const upcomingRequests = await RequestOff.find({
       userId,
       dateOff: { $gte: today },
-      status: { $ne: "REJECTED" },
+      deletedAt: null,
     }).sort({ dateOff: 1 });
 
     if (upcomingRequests.length === 0) {
@@ -101,13 +101,48 @@ class TelegramService {
         FULL_DAY: "Full Day",
       }[request.timeOffType];
 
-      return `📅 ${date} - ${timeText}\n🔸 Status: ${request.status}`;
+      return `📅 ${date} - ${timeText}`;
     };
 
     return (
       "📋 Your upcoming time-off requests:\n\n" +
       upcomingRequests.map(formatRequest).join("\n\n")
     );
+  }
+
+  async generateCancelButtons(userId) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const requests = await RequestOff.find({
+      userId,
+      dateOff: { $gte: today },
+      deletedAt: null,
+    }).sort({ dateOff: 1 });
+
+    const buttons = [];
+    for (const request of requests) {
+      const date = new Date(request.dateOff).toLocaleDateString("en-GB", {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+      });
+
+      const timeText = {
+        MORNING: "Morning",
+        AFTERNOON: "Afternoon",
+        FULL_DAY: "Full Day",
+      }[request.timeOffType];
+
+      buttons.push([
+        Markup.button.callback(
+          `${date} - ${timeText}`,
+          `cancel_${request._id}`
+        ),
+      ]);
+    }
+
+    return buttons;
   }
 
   async checkLoginAttempts(userId) {
@@ -152,7 +187,7 @@ I'm a Checkin Management Bot. Use the following commands to interact:
 
 /help - View all commands
 /login <email> <password> - Login with your credentials
-/requestoff - Select a date to request off
+/request_off - Select a date to request off
 
 🔒 Security Notice:
 • Your information is securely encrypted and protected
@@ -175,7 +210,7 @@ I'm a Checkin Management Bot. Use the following commands to interact:
 /start - Start using the bot
 /help - View command list
 /login <email> <password> - Login with your credentials
-/requestoff - Select a date to request off
+/request_off - Select a date to request off
 
 Example: /login example@email.com yourpassword
 
@@ -195,11 +230,11 @@ Example: /login example@email.com yourpassword
       return ctx.reply(helpMessage);
     });
 
-    this.bot.command("requestoff", async (ctx) => {
+    this.bot.command("request_off", async (ctx) => {
       try {
         const dateButtons = this.generateDateButtons();
         return ctx.reply(
-          "Please select a date for your day off request (next 15 working days):",
+          "Please select a date for your day off request:",
           Markup.inlineKeyboard(dateButtons)
         );
       } catch (error) {
@@ -270,13 +305,14 @@ Example: /login example@email.com yourpassword
             fullday: "Full Day",
           }[timeOption];
 
-          const upcomingRequestsMessage = await this.getUpcomingRequests(userId);
+          const upcomingRequestsMessage = await this.getUpcomingRequests(
+            userId
+          );
 
           await ctx.editMessageText(
             `✅ Your day off request has been submitted and saved:\n\n` +
               `📅 Date: ${formattedDate}\n` +
               `⏰ Time: ${timeOptionText}\n` +
-              `Status: Pending approval\n\n` +
               `━━━━━━━━━━━━━━━━\n\n` +
               upcomingRequestsMessage,
             { reply_markup: { inline_keyboard: [] } }
@@ -388,6 +424,72 @@ Check-out: 6:15 PM
       } catch (error) {
         console.error("Login error:", error);
         return ctx.reply(`❌ Error: ${error.message || error}`);
+      }
+    });
+
+    this.bot.command("cancel_request_off", async (ctx) => {
+      try {
+        const userId = ctx.from.id.toString();
+        const buttons = await this.generateCancelButtons(userId);
+
+        if (buttons.length === 0) {
+          return ctx.reply(
+            "You don't have any active time-off requests to cancel."
+          );
+        }
+
+        return ctx.reply(
+          "Select the time-off request you want to cancel:",
+          Markup.inlineKeyboard(buttons)
+        );
+      } catch (error) {
+        console.error("Error showing cancel options:", error);
+        return ctx.reply("Sorry, there was an error processing your request.");
+      }
+    });
+
+    this.bot.action(/cancel_(.+)/, async (ctx) => {
+      try {
+        const requestId = ctx.match[1];
+        const request = await RequestOff.findById(requestId);
+
+        if (!request) {
+          return ctx.reply("Sorry, this request was not found.");
+        }
+
+        if (request.deletedAt) {
+          return ctx.reply("This request has already been cancelled.");
+        }
+
+        await RequestOff.findByIdAndUpdate(requestId, {
+          deletedAt: new Date(),
+        });
+
+        const date = new Date(request.dateOff).toLocaleDateString("en-GB", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        });
+
+        const timeText = {
+          MORNING: "Morning (8:00 AM - 12:00 PM)",
+          AFTERNOON: "Afternoon (1:00 PM - 5:00 PM)",
+          FULL_DAY: "Full Day",
+        }[request.timeOffType];
+
+        await ctx.editMessageText(
+          `✅ Your time-off request has been cancelled:\n\n` +
+            `📅 Date: ${date}\n` +
+            `⏰ Time: ${timeText}\n\n` +
+            `You can use /request_off to create a new request.`,
+          { reply_markup: { inline_keyboard: [] } }
+        );
+
+        await ctx.answerCbQuery("Request cancelled successfully!");
+      } catch (error) {
+        console.error("Error cancelling request:", error);
+        return ctx.reply("Sorry, there was an error cancelling your request.");
       }
     });
   }

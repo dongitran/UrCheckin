@@ -15,6 +15,10 @@ const requestOffSchema = new mongoose.Schema(
       enum: ["MORNING", "AFTERNOON", "FULL_DAY"],
       required: true,
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
