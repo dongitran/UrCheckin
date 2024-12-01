@@ -23,7 +23,7 @@ class TelegramService {
     process.once("SIGTERM", () => this.bot.stop("SIGTERM"));
   }
 
-  generateDateButtons(startDate = new Date()) {
+  async generateDateButtons(startDate = new Date()) {
     const buttons = [];
     const dateRow = [];
 
@@ -39,9 +39,24 @@ class TelegramService {
         month: "2-digit",
       });
 
+      const existingRequest = await this.getExistingRequest(
+        this.currentUserId,
+        date
+      );
+
+      let displayText = formattedDate;
+      if (existingRequest) {
+        const timeOffText = {
+          MORNING: "(Morning)",
+          AFTERNOON: "(Afternoon)",
+          FULL_DAY: "(Full Day)",
+        }[existingRequest.timeOffType];
+        displayText = `${formattedDate} ${timeOffText}`;
+      }
+
       dateRow.push(
         Markup.button.callback(
-          formattedDate,
+          displayText,
           `date_${date.toISOString().split("T")[0]}`
         )
       );
@@ -59,13 +74,13 @@ class TelegramService {
     return Markup.inlineKeyboard([
       [
         Markup.button.callback(
-          "🌅 Morning (8:00 AM - 12:00 PM)",
+          "🌅 Morning (9:00 AM - 12:00 PM)",
           `time_morning_${selectedDate}`
         ),
       ],
       [
         Markup.button.callback(
-          "🌇 Afternoon (1:00 PM - 5:00 PM)",
+          "🌇 Afternoon (1:00 PM - 6:00 PM)",
           `time_afternoon_${selectedDate}`
         ),
       ],
@@ -96,8 +111,8 @@ class TelegramService {
       });
 
       const timeText = {
-        MORNING: "Morning (8:00 AM - 12:00 PM)",
-        AFTERNOON: "Afternoon (1:00 PM - 5:00 PM)",
+        MORNING: "Morning (9:00 AM - 12:00 PM)",
+        AFTERNOON: "Afternoon (1:00 PM - 6:00 PM)",
         FULL_DAY: "Full Day",
       }[request.timeOffType];
 
@@ -232,9 +247,14 @@ Example: /login example@email.com yourpassword
 
     this.bot.command("request_off", async (ctx) => {
       try {
-        const dateButtons = this.generateDateButtons();
+        this.currentUserId = ctx.from.id.toString();
+        const dateButtons = await this.generateDateButtons();
+        const upcomingDaysOff = await this.getUpcomingDaysOff(
+          this.currentUserId
+        );
+
         return ctx.reply(
-          "Please select a date for your day off request:",
+          `${upcomingDaysOff}\nPlease select a date for your day off request:`,
           Markup.inlineKeyboard(dateButtons)
         );
       } catch (error) {
@@ -246,6 +266,12 @@ Example: /login example@email.com yourpassword
     this.bot.action(/date_(\d{4}-\d{2}-\d{2})/, async (ctx) => {
       try {
         const selectedDate = ctx.match[1];
+        const userId = ctx.from.id.toString();
+        const existingRequest = await this.getExistingRequest(
+          userId,
+          selectedDate
+        );
+
         const formattedDate = new Date(selectedDate).toLocaleDateString(
           "en-GB",
           {
@@ -256,8 +282,20 @@ Example: /login example@email.com yourpassword
           }
         );
 
+        let message = `📅 Selected date: ${formattedDate}\n\n`;
+        if (existingRequest) {
+          const timeText = {
+            MORNING: "Morning (9:00 AM - 12:00 PM)",
+            AFTERNOON: "Afternoon (1:00 PM - 6:00 PM)",
+            FULL_DAY: "Full Day",
+          }[existingRequest.timeOffType];
+
+          message += `⚠️ You already have a request for ${timeText}\nSelecting a new option will update your existing request.\n\n`;
+        }
+        message += "Please select time option:";
+
         await ctx.editMessageText(
-          `📅 Selected date: ${formattedDate}\n\nPlease select time option:`,
+          message,
           this.generateTimeOptions(selectedDate)
         );
 
@@ -283,11 +321,22 @@ Example: /login example@email.com yourpassword
             fullday: "FULL_DAY",
           };
 
-          await RequestOff.create({
+          const existingRequest = await this.getExistingRequest(
             userId,
-            dateOff: new Date(selectedDate),
-            timeOffType: timeOffTypeMap[timeOption],
-          });
+            selectedDate
+          );
+
+          if (existingRequest) {
+            await RequestOff.findByIdAndUpdate(existingRequest._id, {
+              timeOffType: timeOffTypeMap[timeOption],
+            });
+          } else {
+            await RequestOff.create({
+              userId,
+              dateOff: new Date(selectedDate),
+              timeOffType: timeOffTypeMap[timeOption],
+            });
+          }
 
           const formattedDate = new Date(selectedDate).toLocaleDateString(
             "en-GB",
@@ -300,8 +349,8 @@ Example: /login example@email.com yourpassword
           );
 
           const timeOptionText = {
-            morning: "Morning (8:00 AM - 12:00 PM)",
-            afternoon: "Afternoon (1:00 PM - 5:00 PM)",
+            morning: "Morning (9:00 AM - 12:00 PM)",
+            afternoon: "Afternoon (1:00 PM - 6:00 PM)",
             fullday: "Full Day",
           }[timeOption];
 
@@ -310,7 +359,9 @@ Example: /login example@email.com yourpassword
           );
 
           await ctx.editMessageText(
-            `✅ Your day off request has been submitted and saved:\n\n` +
+            `✅ Your day off request has been ${
+              existingRequest ? "updated" : "submitted"
+            } and saved:\n\n` +
               `📅 Date: ${formattedDate}\n` +
               `⏰ Time: ${timeOptionText}\n` +
               `━━━━━━━━━━━━━━━━\n\n` +
@@ -473,8 +524,8 @@ Check-out: 6:15 PM
         });
 
         const timeText = {
-          MORNING: "Morning (8:00 AM - 12:00 PM)",
-          AFTERNOON: "Afternoon (1:00 PM - 5:00 PM)",
+          MORNING: "Morning (9:00 AM - 12:00 PM)",
+          AFTERNOON: "Afternoon (1:00 PM - 6:00 PM)",
           FULL_DAY: "Full Day",
         }[request.timeOffType];
 
@@ -492,6 +543,56 @@ Check-out: 6:15 PM
         return ctx.reply("Sorry, there was an error cancelling your request.");
       }
     });
+  }
+
+  async getExistingRequest(userId, date) {
+    return await RequestOff.findOne({
+      userId,
+      dateOff: new Date(date),
+      deletedAt: null,
+    });
+  }
+
+  getTimeOffEmoji(timeOffType) {
+    const emojis = {
+      MORNING: "🌅",
+      AFTERNOON: "🌇",
+      FULL_DAY: "📅",
+    };
+    return emojis[timeOffType] || "";
+  }
+  async getUpcomingDaysOff(userId) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const upcomingRequests = await RequestOff.find({
+      userId,
+      dateOff: { $gte: today },
+      deletedAt: null,
+    }).sort({ dateOff: 1 });
+
+    if (upcomingRequests.length === 0) {
+      return "You have no upcoming days off.";
+    }
+
+    const timeOffTexts = {
+      MORNING: "Morning (9:00 AM - 12:00 PM)",
+      AFTERNOON: "Afternoon (1:00 PM - 6:00 PM)",
+      FULL_DAY: "Full Day",
+    };
+
+    const upcomingText = upcomingRequests
+      .map((request) => {
+        const date = new Date(request.dateOff).toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "2-digit",
+          month: "2-digit",
+        });
+        return `• ${date}: ${timeOffTexts[request.timeOffType]}`;
+      })
+      .join("\n");
+
+    return `📋 Your upcoming days off:\n${upcomingText}\n`;
   }
 }
 
