@@ -27,7 +27,7 @@ export async function getRecaptcha() {
 
     const { taskId } = initialResponse.data;
 
-    await delay(10000);
+    await delay(3000);
 
     const tokenResponse = await axios.post(
       String(process.env.CHECK_URL),
