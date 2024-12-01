@@ -9,6 +9,7 @@ import { RequestOffHandler } from "../handlers/requestOffHandlers.js";
 import { LoginHandler } from "../handlers/loginHandler.js";
 import { RequestService } from "./requestService.js";
 import { LoginService } from "./loginService.js";
+import { checkAuth } from "../middleware/authMiddleware.js";
 
 dotenv.config();
 
@@ -31,27 +32,30 @@ class TelegramService {
   initializeCommands() {
     this.bot.command("start", startHandler);
     this.bot.command("help", helpHandler);
-    this.bot.command("request_off", (ctx) =>
-      RequestOffHandler.handleRequestOff(ctx, this)
-    );
     this.bot.command("login", (ctx) => LoginHandler.handle(ctx, this));
 
-    this.bot.command("my_days_off", listRequestsHandler);
+    this.bot.command("request_off", checkAuth, (ctx) =>
+      RequestOffHandler.handleRequestOff(ctx, this)
+    );
 
-    this.bot.action(/date_(.+)_(\d{4}-\d{2}-\d{2})/, (ctx) =>
+    this.bot.command("my_days_off", checkAuth, (ctx) =>
+      listRequestsHandler(ctx, this)
+    );
+    this.bot.command("cancel_request_off", checkAuth, (ctx) =>
+      RequestOffHandler.handleCancelRequest(ctx, this)
+    );
+
+    this.bot.action(/date_(.+)_(\d{4}-\d{2}-\d{2})/, checkAuth, (ctx) =>
       RequestOffHandler.handleDateSelection(ctx, this)
     );
 
     this.bot.action(
       /time_(.+)_(morning|afternoon|fullday)_(\d{4}-\d{2}-\d{2})/,
+      checkAuth,
       (ctx) => RequestOffHandler.handleTimeSelection(ctx, this)
     );
 
-    this.bot.command("cancel_request_off", (ctx) =>
-      RequestOffHandler.handleCancelRequest(ctx, this)
-    );
-
-    this.bot.action(/cancel_(.+)/, (ctx) =>
+    this.bot.action(/cancel_(.+)/, checkAuth, (ctx) =>
       RequestOffHandler.handleCancelAction(ctx, this)
     );
   }

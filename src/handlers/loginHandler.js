@@ -61,7 +61,7 @@ Your login information is being securely processed. Please wait a moment.`);
         );
       }
 
-      const existingUser = await User.findOne({ email });
+      const existingUser = await User.findOne({ email, status: "activated" });
       if (existingUser) {
         if (existingUser.userId !== userId) {
           throw "This email is already registered with a different user";
