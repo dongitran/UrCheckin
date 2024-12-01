@@ -1,6 +1,10 @@
 import { Telegraf } from "telegraf";
 import dotenv from "dotenv";
-import { startHandler, helpHandler } from "../handlers/commandHandlers.js";
+import {
+  startHandler,
+  helpHandler,
+  listRequestsHandler,
+} from "../handlers/commandHandlers.js";
 import { RequestOffHandler } from "../handlers/requestOffHandlers.js";
 import { LoginHandler } from "../handlers/loginHandler.js";
 import { RequestService } from "./requestService.js";
@@ -31,6 +35,8 @@ class TelegramService {
       RequestOffHandler.handleRequestOff(ctx, this)
     );
     this.bot.command("login", (ctx) => LoginHandler.handle(ctx, this));
+
+    this.bot.command("my_days_off", listRequestsHandler);
 
     this.bot.action(/date_(.+)_(\d{4}-\d{2}-\d{2})/, (ctx) =>
       RequestOffHandler.handleDateSelection(ctx, this)
