@@ -1,10 +1,10 @@
-import TelegramBot from "node-telegram-bot-api";
+import { Telegraf } from "telegraf";
 import dotenv from "dotenv";
-import Account from "../models/account.model.js";
-import User from "../models/user.model.js";
-import LoginAttempt from "../models/loginAttempt.model.js";
-import { encrypt } from "./encryption.service.js";
-import { getRecaptcha, login } from "./auth.service.js";
+import { startHandler, helpHandler } from "../handlers/commandHandlers.js";
+import { RequestOffHandler } from "../handlers/requestOffHandlers.js";
+import { LoginHandler } from "../handlers/loginHandler.js";
+import { RequestService } from "./requestService.js";
+import { LoginService } from "./loginService.js";
 
 dotenv.config();
 
@@ -13,218 +13,69 @@ class TelegramService {
     if (!process.env.TELEGRAM_BOT_TOKEN) {
       throw new Error("TELEGRAM_BOT_TOKEN is required");
     }
-    this.bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-      polling: true,
-    });
-    this.chatIds = new Set();
+
+    this.bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
+    this.requestService = RequestService;
+    this.loginService = LoginService;
     this.initializeCommands();
-  }
+    this.bot.launch();
 
-  async checkLoginAttempts(userId) {
-    const today = new Date().toISOString().split("T")[0];
-
-    try {
-      const loginAttempt = await LoginAttempt.findOne({
-        userId,
-        date: today,
-      });
-
-      if (!loginAttempt) {
-        await LoginAttempt.create({
-          userId,
-          date: today,
-          count: 1,
-        });
-        return true;
-      }
-
-      if (loginAttempt.count >= 5) {
-        return false;
-      }
-
-      await LoginAttempt.updateOne(
-        { userId, date: today },
-        { $inc: { count: 1 } }
-      );
-      return true;
-    } catch (error) {
-      console.error("Error checking login attempts:", error);
-      throw error;
-    }
+    process.once("SIGINT", () => this.bot.stop("SIGINT"));
+    process.once("SIGTERM", () => this.bot.stop("SIGTERM"));
   }
 
   initializeCommands() {
-    this.bot.onText(/\/start/, (msg) => {
-      const chatId = msg.chat.id;
-      const username = msg.from.username || msg.from.first_name;
-      this.chatIds.add(chatId);
+    this.bot.command("start", startHandler);
+    this.bot.command("help", helpHandler);
+    this.bot.command("request_off", (ctx) =>
+      RequestOffHandler.handleRequestOff(ctx, this)
+    );
+    this.bot.command("login", (ctx) => LoginHandler.handle(ctx, this));
 
-      const welcomeMessage = `
-Hello ${username}! 👋
-I'm a Checkin Management Bot. Use the following commands to interact:
+    this.bot.action(/date_(.+)_(\d{4}-\d{2}-\d{2})/, (ctx) =>
+      RequestOffHandler.handleDateSelection(ctx, this)
+    );
 
-/help - View all commands
-/login <email> <password> - Login with your credentials
+    this.bot.action(
+      /time_(.+)_(morning|afternoon|fullday)_(\d{4}-\d{2}-\d{2})/,
+      (ctx) => RequestOffHandler.handleTimeSelection(ctx, this)
+    );
 
-🔒 Security Notice:
-• Your information is securely encrypted and protected
-• We use industry-standard encryption to safeguard your data
-• Your credentials are stored in encrypted format only
+    this.bot.command("cancel_request_off", (ctx) =>
+      RequestOffHandler.handleCancelRequest(ctx, this)
+    );
 
-⚠️ Disclaimer:
-• This is a research project
-• We are not responsible for any issues that may arise from using this bot
-• Use at your own discretion
-      `;
+    this.bot.action(/cancel_(.+)/, (ctx) =>
+      RequestOffHandler.handleCancelAction(ctx, this)
+    );
+  }
 
-      this.bot.sendMessage(chatId, welcomeMessage);
-    });
+  async getExistingRequest(...args) {
+    return await this.requestService.getExistingRequest(...args);
+  }
 
-    this.bot.onText(/\/help/, (msg) => {
-      const chatId = msg.chat.id;
-      this.chatIds.add(chatId);
+  async getUpcomingRequests(...args) {
+    return await this.requestService.getUpcomingRequests(...args);
+  }
 
-      const helpMessage = `
-📌 Available Commands:
+  async getUpcomingDaysOff(...args) {
+    return await this.requestService.getUpcomingDaysOff(...args);
+  }
 
-/start - Start using the bot
-/help - View command list
-/login <email> <password> - Login with your credentials
+  generateTimeOptions(...args) {
+    return this.requestService.generateTimeOptions(...args);
+  }
 
-Example: /login example@email.com yourpassword
+  async generateDateButtons(...args) {
+    return await this.requestService.generateDateButtons(...args);
+  }
 
-🔒 Security Information:
-• All user data is encrypted using AES-256 encryption
-• Your credentials are never stored in plain text
-• We prioritize the security of your information
+  async generateCancelButtons(...args) {
+    return await this.requestService.generateCancelButtons(...args);
+  }
 
-⚠️ Important Notice:
-• This bot is created for research purposes only
-• We assume no liability for any issues or damages
-• By using this bot, you acknowledge these terms
-
-❓ Need help? Contact the administrator for support.
-      `;
-
-      this.bot.sendMessage(chatId, helpMessage);
-    });
-
-    this.bot.onText(/^\/login$/, (msg) => {
-      const chatId = msg.chat.id;
-      this.bot.sendMessage(
-        chatId,
-        `❌ Missing email and password!
-
-Please use the format: /login email password
-Example: /login dongtran@test.com yourpassword`
-      );
-    });
-
-    this.bot.onText(/\/login (.+)/, async (msg, match) => {
-      const chatId = msg.chat.id;
-      const userId = msg.from.id.toString();
-      const userName = msg.from.username || msg.from.first_name;
-
-      await this.bot.sendMessage(
-        chatId,
-        `⏳ Processing your request...
-
-Your login information is being securely processed. Please wait a moment.`
-      );
-
-      try {
-        const canLogin = await this.checkLoginAttempts(userId);
-        if (!canLogin) {
-          throw "You have exceeded the maximum login attempts (5) for today. Please try again tomorrow.";
-        }
-
-        const params = match[1].split(" ");
-        if (params.length !== 2) {
-          throw "Invalid format. Use: /login email password";
-        }
-
-        const [email, password] = params;
-
-        const encryptedPassword = encrypt(password);
-
-        const existingAccount = await Account.findOne({ userId });
-
-        if (existingAccount) {
-          await Account.updateOne(
-            { userId },
-            {
-              $set: {
-                email,
-                password: encryptedPassword,
-                userName,
-              },
-            }
-          );
-        } else {
-          await Account.create({
-            userId,
-            email,
-            password: encryptedPassword,
-            userName,
-          });
-        }
-
-        const captchaToken = await getRecaptcha();
-        console.log(captchaToken, "captchaTokencaptchaToken");
-        const loginResponse = await login(email, password, captchaToken);
-        console.log(loginResponse, "loginResponseloginResponse");
-
-        if (!loginResponse?.refresh_token) {
-          throw new Error(
-            "The email or password might be incorrect, please check again. If you're sure the information is correct, please contact @dongtranthien"
-          );
-        }
-
-        const existingUser = await User.findOne({ email });
-        if (existingUser) {
-          if (existingUser.userId !== userId) {
-            throw "This email is already registered with a different user";
-          }
-          await User.updateOne(
-            { email },
-            {
-              $set: {
-                refreshToken: loginResponse.refresh_token,
-                status: "activated",
-              },
-            }
-          );
-        } else {
-          await User.create({
-            email,
-            userId,
-            refreshToken: loginResponse.refresh_token,
-            status: "activated",
-          });
-        }
-
-        await this.bot.sendMessage(
-          chatId,
-          `✅ Account ${existingAccount ? "updated" : "created"} successfully!
-
-🕒 Automatic Schedule:
-Check-in: 9:15 AM
-Check-out: 6:15 PM
-
-🔒 Security Information:
-• Your password has been securely encrypted
-• All data is stored using AES-256 encryption
-
-✨ You're all set! Just relax and let the bot handle your daily check-ins.`
-        );
-      } catch (error) {
-        console.error("Login error:", error);
-        await this.bot.sendMessage(
-          chatId,
-          `❌ Error: ${error.message || error}`
-        );
-      }
-    });
+  async checkLoginAttempts(...args) {
+    return await this.loginService.checkLoginAttempts(...args);
   }
 }
 
