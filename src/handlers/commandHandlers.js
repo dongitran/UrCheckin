@@ -15,9 +15,7 @@ I'm a UrCheckin Bot. Use the following commands to interact:
 /cancel_request_off - Cancel an upcoming time-off request
 
 🔒 Security Notice:
-• Your information is securely encrypted and protected
-• We use industry-standard encryption to safeguard your data
-• Your credentials are stored in encrypted format only
+• All user data is encrypted using AES-256 encryption
 
 ⚠️ Disclaimer:
 • This is a research project
@@ -47,15 +45,13 @@ Example: /login example@email.com yourpassword
 
 🔒 Security Information:
 • All user data is encrypted using AES-256 encryption
-• Your credentials are never stored in plain text
-• We prioritize the security of your information
 
 ⚠️ Important Notice:
 • This bot is created for research purposes only
 • We assume no liability for any issues or damages
 • By using this bot, you acknowledge these terms
 
-❓ Need help? Contact the administrator for support.
+❓ Need help? Contact @dongtranthien for support.
   `;
 
   return ctx.reply(helpMessage);
