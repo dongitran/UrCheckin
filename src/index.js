@@ -116,22 +116,22 @@ async function processCheckin(checkTime) {
 
 connectDB();
 
-cron.schedule("15 9 * * *", () => processCheckin("9:15"), {
+cron.schedule("0 15 9 * * 1-5", () => processCheckin("9:15"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
 
-cron.schedule("55 11 * * *", () => processCheckin("11:55"), {
+cron.schedule("0 55 11 * * 1-5", () => processCheckin("11:55"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
 
-cron.schedule("10 13 * * *", () => processCheckin("13:10"), {
+cron.schedule("0 10 13 * * 1-5", () => processCheckin("13:10"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
 
-cron.schedule("10 18 * * *", () => processCheckin("18:10"), {
+cron.schedule("0 10 18 * * 1-5", () => processCheckin("18:10"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
