@@ -47,6 +47,13 @@ async function shouldProcessUser(user, timeOffRequests, checkTime) {
   }
 }
 
+function getRandomDelay(min, max) {
+  return Math.floor(Math.random() * (max - min + 1) + min) * 1000;
+}
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const initialDelay = getRandomDelay(120, 460);
+await delay(initialDelay);
+
 async function processCheckin(checkTime) {
   try {
     const users = await User.find({ status: "activated" });
@@ -96,6 +103,11 @@ async function processCheckin(checkTime) {
             checkinResponse,
           },
         });
+
+        if (users.indexOf(user) < users.length - 1) {
+          const userDelay = getRandomDelay(10, 50);
+          await delay(userDelay);
+        }
       } catch (error) {
         console.log(error, "errorerror");
         await Log.create({
