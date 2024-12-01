@@ -4,7 +4,11 @@ export const startHandler = (ctx) => {
   const username = ctx.from.username || ctx.from.first_name;
   const welcomeMessage = `
 Hello ${username}! 👋
-I'm a UrCheckin Bot. Use the following commands to interact:
+
+🤖 I'm UrCheckin Bot - your automated check-in/out assistant for work. I help you:
+• Automatically handle daily check-in (9:15 AM) and check-out (6:15 PM)
+• Manage your time-off requests easily
+• Stay compliant with attendance requirements
 
 📌 Available Commands:
 /start - Start using the bot
