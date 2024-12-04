@@ -75,18 +75,26 @@ export const listRequestsHandler = async (ctx, telegramService) => {
     }
 
     const formatRequest = (request) => {
-      const weekday = new Date(request.dateOff).toLocaleDateString("en-GB", {
+      const date = new Date(request.dateOff);
+      date.setHours(date.getHours() + 7);
+
+      const weekday = date.toLocaleDateString("en-GB", {
         weekday: "long",
+        timeZone: "Asia/Bangkok",
       });
 
-      const day = new Date(request.dateOff)
-        .getDate()
-        .toString()
-        .padStart(2, "0");
-      const month = (new Date(request.dateOff).getMonth() + 1)
-        .toString()
-        .padStart(2, "0");
-      const year = new Date(request.dateOff).getFullYear();
+      const day = date.toLocaleString("en-GB", {
+        day: "2-digit",
+        timeZone: "Asia/Bangkok",
+      });
+      const month = date.toLocaleString("en-GB", {
+        month: "2-digit",
+        timeZone: "Asia/Bangkok",
+      });
+      const year = date.toLocaleString("en-GB", {
+        year: "numeric",
+        timeZone: "Asia/Bangkok",
+      });
       const formattedDate = `${day}/${month}/${year}`;
 
       const timeText = {
@@ -109,24 +117,20 @@ export const listRequestsHandler = async (ctx, telegramService) => {
     };
 
     const currentDate = new Date();
+    currentDate.setHours(currentDate.getHours() + 7);
     currentDate.setHours(0, 0, 0, 0);
 
-    const upcomingRequests = requests.filter((r) => r.dateOff >= currentDate);
-    const pastRequests = requests.filter((r) => r.dateOff < currentDate);
+    const upcomingRequests = requests.filter((r) => {
+      const dateOff = new Date(r.dateOff);
+      dateOff.setHours(dateOff.getHours() + 7);
+      return dateOff >= currentDate;
+    });
 
     let message = "🗓️ Your Days Off Schedule\n" + "━━━━━━━━━━━━━━━━━━━━━\n\n";
 
     if (upcomingRequests.length > 0) {
       message += "📌 UPCOMING DAYS OFF\n\n";
       message += upcomingRequests.map(formatRequest).join("\n\n");
-    }
-
-    if (pastRequests.length > 0) {
-      if (upcomingRequests.length > 0) {
-        message += "\n\n";
-      }
-      message += "📜 PAST DAYS OFF\n\n";
-      message += pastRequests.map(formatRequest).join("\n\n");
     }
 
     return ctx.reply(message);

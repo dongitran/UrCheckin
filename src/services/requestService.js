@@ -11,12 +11,14 @@ export class RequestService {
   }
 
   static async generateDateButtons(userId, sessionId, startDate = new Date()) {
+    startDate.setHours(startDate.getHours() + 7);
     const buttons = [];
     const dateRow = [];
 
     for (let i = 0; i < 15; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
+      date.setHours(date.getHours() + 7);
 
       if (date.getDay() === 0 || date.getDay() === 6) continue;
 
@@ -24,6 +26,7 @@ export class RequestService {
         weekday: "short",
         day: "2-digit",
         month: "2-digit",
+        timeZone: "Asia/Bangkok",
       });
 
       const existingRequest = await this.getExistingRequest(userId, date);
@@ -38,11 +41,10 @@ export class RequestService {
         displayText = `${formattedDate} ${timeOffText}`;
       }
 
+      const dateStr = new Date(date.getTime()).toISOString().split("T")[0];
+
       dateRow.push(
-        Markup.button.callback(
-          displayText,
-          `date_${sessionId}_${date.toISOString().split("T")[0]}`
-        )
+        Markup.button.callback(displayText, `date_${sessionId}_${dateStr}`)
       );
 
       if (dateRow.length === 3 || i === 14) {
@@ -79,6 +81,7 @@ export class RequestService {
 
   static async getUpcomingRequests(userId) {
     const today = new Date();
+    today.setHours(today.getHours() + 7);
     today.setHours(0, 0, 0, 0);
 
     const upcomingRequests = await RequestOff.find({
@@ -97,6 +100,7 @@ export class RequestService {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
+        timeZone: "Asia/Bangkok",
       });
 
       const timeText = {
@@ -130,6 +134,7 @@ export class RequestService {
         weekday: "short",
         day: "2-digit",
         month: "2-digit",
+        timeZone: "Asia/Bangkok",
       });
 
       const timeText = {
@@ -175,6 +180,7 @@ export class RequestService {
           weekday: "short",
           day: "2-digit",
           month: "2-digit",
+          timeZone: "Asia/Bangkok",
         });
         return `• ${date}: ${timeOffTexts[request.timeOffType]}`;
       })
