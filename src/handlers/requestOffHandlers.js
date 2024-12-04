@@ -54,6 +54,7 @@ export class RequestOffHandler {
         day: "2-digit",
         month: "long",
         year: "numeric",
+        timeZone: "Asia/Bangkok",
       });
 
       let message = `📅 Selected date: ${formattedDate}\n\n`;
@@ -134,6 +135,7 @@ export class RequestOffHandler {
         day: "2-digit",
         month: "long",
         year: "numeric",
+        timeZone: "Asia/Bangkok",
       });
 
       const timeOptionText = {
@@ -207,6 +209,7 @@ export class RequestOffHandler {
         day: "2-digit",
         month: "long",
         year: "numeric",
+        timeZone: "Asia/Bangkok",
       });
 
       const timeText = {
