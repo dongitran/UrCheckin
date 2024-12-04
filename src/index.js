@@ -56,10 +56,12 @@ async function processCheckin(checkTime) {
   try {
     const users = await User.find({ status: "activated" });
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    today.setHours(today.getHours() + 7);
+    const today_str = today.toISOString().split("T")[0];
 
     const timeOffRequests = await RequestOff.find({
-      dateOff: new Date(today),
+      dateOff: new Date(today_str),
       deletedAt: null,
     });
 
