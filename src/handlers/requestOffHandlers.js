@@ -2,6 +2,9 @@ import crypto from "crypto";
 import { Markup } from "telegraf";
 import RequestSession from "../models/requestSession.model.js";
 import RequestOff from "../models/requestOff.model.js";
+import User from "../models/user.model.js";
+import { getAccessToken } from "../services/token.service.js";
+import { getInfo } from "../services/info.service.js";
 
 export class RequestOffHandler {
   static async handleRequestOff(ctx, telegramService) {
@@ -127,6 +130,17 @@ export class RequestOffHandler {
           timeOffType: timeOffTypeMap[timeOption],
         });
       }
+
+      const user = await User.findOne({ status: "activated" });
+      const { accessToken } = await getAccessToken(user.refreshToken);
+      const result = await getInfo(accessToken);
+      const userName = result?.name;
+      if (!userName) {
+        return ctx.reply(
+          "❌ Error creating time-off request. Please contact @dongtranthien for assistance."
+        );
+      }
+      console.log(userName, "userNameuserName");
 
       await RequestSession.deleteOne({ userId, sessionId });
 
