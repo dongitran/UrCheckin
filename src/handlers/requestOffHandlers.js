@@ -8,6 +8,7 @@ import { getInfo } from "../services/info.service.js";
 import { getSysInfo } from "../services/getSysInfo.js";
 import { getGroupsRequest } from "../services/getGroupsRequest.js";
 import { requestTimeOff } from "../services/requestOff.js";
+import { removeTimeOff } from "../services/removeRequest.js";
 
 export class RequestOffHandler {
   static async handleRequestOff(ctx, telegramService) {
@@ -122,8 +123,12 @@ export class RequestOffHandler {
         selectedDate
       );
 
-      const user = await User.findOne({ status: "activated" });
+      const user = await User.findOne({ userId, status: "activated" });
       const { accessToken } = await getAccessToken(user.refreshToken);
+
+      if (existingRequest) {
+        await removeTimeOff(accessToken, existingRequest.requestId);
+      }
 
       const sysInfo = await getSysInfo(accessToken);
       const userName = sysInfo?.viewer?.name;
@@ -226,6 +231,13 @@ export class RequestOffHandler {
       if (request.deletedAt) {
         return ctx.reply("This request has already been cancelled.");
       }
+
+      const user = await User.findOne({
+        userId: request.userId,
+        status: "activated",
+      });
+      const { accessToken } = await getAccessToken(user.refreshToken);
+      await removeTimeOff(accessToken, request.requestId);
 
       await RequestOff.findByIdAndUpdate(requestId, {
         deletedAt: new Date(),
