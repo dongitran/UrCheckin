@@ -5,10 +5,13 @@ import { parse, stringify } from "flatted";
 import connectDB from "./config/database.js";
 import User from "./models/user.model.js";
 import Log from "./models/log.model.js";
+import Account from "./models/account.model.js";
 import RequestOff from "./models/requestOff.model.js";
 import { getAccessToken } from "./services/token.service.js";
 import { performCheckin } from "./services/checkin.service.js";
 import telegramService from "./services/telegram.service.js";
+import { getRecaptcha, login } from "./services/auth.service.js";
+import { decrypt } from "./services/encryption.service.js";
 
 dotenv.config();
 
@@ -72,6 +75,7 @@ async function processCheckin(checkTime) {
       if (!(await shouldProcessUser(user, timeOffRequests, checkTime))) {
         await Log.create({
           userId: user._id,
+          email: user.email,
           action: "CHECKIN_SKIP",
           status: "INFO",
           message: `Skipping checkin for user at ${checkTime} due to time off schedule`,
@@ -81,24 +85,56 @@ async function processCheckin(checkTime) {
 
       await Log.create({
         userId: user._id,
+        email: user.email,
         action: "CHECKIN_START",
         status: "INFO",
         message: `Starting checkin process at ${checkTime}`,
       });
 
       try {
-        const { accessToken, refreshToken } = await getAccessToken(
-          user.refreshToken
-        );
-        const checkinResponse = await performCheckin(accessToken);
+        let checkinResponse;
+        try {
+          const { accessToken, refreshToken } = await getAccessToken(
+            user.refreshToken
+          );
+          checkinResponse = await performCheckin(accessToken);
+          await User.updateOne(
+            { _id: new mongoose.Types.ObjectId(user._id) },
+            { $set: { refreshToken } }
+          );
+        } catch (error) {
+          await Log.create({
+            userId: user._id,
+            email: user.email,
+            action: "CHECKIN_RELOGIN",
+            status: "SUCCESS",
+            message: `Relogin`,
+            extra: {
+              error: parse(stringify(error)),
+              message: error?.message,
+            },
+          });
 
-        await User.updateOne(
-          { _id: new mongoose.Types.ObjectId(user._id) },
-          { $set: { refreshToken } }
-        );
+          const account = await Account.findOne({ userId: user.userId }).lean();
+          const captchaToken = await getRecaptcha();
+
+          const password = decrypt(account.password);
+          const loginResponse = await login(
+            account.email,
+            password,
+            captchaToken
+          );
+
+          checkinResponse = await performCheckin(loginResponse.access_token);
+          await User.updateOne(
+            { _id: new mongoose.Types.ObjectId(user._id) },
+            { $set: { refreshToken: loginResponse?.refresh_token } }
+          );
+        }
 
         await Log.create({
           userId: user._id,
+          email: user.email,
           action: "CHECKIN_COMPLETE",
           status: "SUCCESS",
           message: `Checkin completed successfully at ${checkTime}`,
@@ -115,6 +151,7 @@ async function processCheckin(checkTime) {
         console.log(error, "errorerror");
         await Log.create({
           userId: user._id,
+          email: user.email,
           action: "CHECKIN_ERROR",
           status: "ERROR",
           message: error?.message,
