@@ -6,6 +6,10 @@ const logSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  email: {
+    type: String,
+    required: false,
+  },
   action: {
     type: String,
     required: true,
