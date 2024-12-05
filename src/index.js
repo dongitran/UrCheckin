@@ -183,7 +183,7 @@ cron.schedule("0 10 13 * * 1-5", () => processCheckin("13:10"), {
   timezone: "Asia/Ho_Chi_Minh",
 });
 
-cron.schedule("0 10 18 * * 1-5", () => processCheckin("18:10"), {
+cron.schedule("0 0 18 * * 1-5", () => processCheckin("18:10"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
