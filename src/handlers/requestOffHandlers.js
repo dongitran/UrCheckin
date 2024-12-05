@@ -5,6 +5,10 @@ import RequestOff from "../models/requestOff.model.js";
 import User from "../models/user.model.js";
 import { getAccessToken } from "../services/token.service.js";
 import { getInfo } from "../services/info.service.js";
+import { getSysInfo } from "../services/getSysInfo.js";
+import { getGroupsRequest } from "../services/getGroupsRequest.js";
+import { requestTimeOff } from "../services/requestOff.js";
+import { removeTimeOff } from "../services/removeRequest.js";
 
 export class RequestOffHandler {
   static async handleRequestOff(ctx, telegramService) {
@@ -119,38 +123,52 @@ export class RequestOffHandler {
         selectedDate
       );
 
+      const user = await User.findOne({ userId, status: "activated" });
+      const { accessToken } = await getAccessToken(user.refreshToken);
+
+      if (existingRequest) {
+        await removeTimeOff(accessToken, existingRequest.requestId);
+      }
+
+      const sysInfo = await getSysInfo(accessToken);
+      const userName = sysInfo?.viewer?.name;
+      const manager = sysInfo?.viewer?.manager[0];
+      if (!userName || !manager) {
+        return ctx.reply(
+          "❌ Error creating time-off request. Please contact @dongtranthien for assistance."
+        );
+      }
+      const groupsRequest = await getGroupsRequest(accessToken);
+      const group = groupsRequest?.groups.find(
+        (item) => String(item.id) === process.env.OFF_REQUEST_ID
+      );
+      const followers = group?.followers?.map((item) => item.username);
+      const [year, month, day] = selectedDate.split("-");
+      const dateRequest = `${day}/${month}/${year}`;
+      const requestOffResult = await requestTimeOff(
+        accessToken,
+        `${userName}-${dateRequest}-Xin OFF phép năm`,
+        followers.join(","),
+        manager,
+        dateRequest
+      );
+      const requestId = requestOffResult?.timeoff?.id;
+
       if (existingRequest) {
         await RequestOff.findByIdAndUpdate(existingRequest._id, {
           timeOffType: timeOffTypeMap[timeOption],
+          requestId,
         });
       } else {
         await RequestOff.create({
           userId,
+          requestId,
           dateOff: new Date(selectedDate),
           timeOffType: timeOffTypeMap[timeOption],
         });
       }
 
-      const user = await User.findOne({ status: "activated" });
-      const { accessToken } = await getAccessToken(user.refreshToken);
-      const result = await getInfo(accessToken);
-      const userName = result?.name;
-      if (!userName) {
-        return ctx.reply(
-          "❌ Error creating time-off request. Please contact @dongtranthien for assistance."
-        );
-      }
-      console.log(userName, "userNameuserName");
-
       await RequestSession.deleteOne({ userId, sessionId });
-
-      const formattedDate = new Date(selectedDate).toLocaleDateString("en-GB", {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        timeZone: "Asia/Bangkok",
-      });
 
       const timeOptionText = {
         morning: "Morning (9:00 AM - 12:00 PM)",
@@ -166,7 +184,7 @@ export class RequestOffHandler {
         `✅ Your day off request has been ${
           existingRequest ? "updated" : "submitted"
         } and saved:\n\n` +
-          `📅 Date: ${formattedDate}\n` +
+          `📅 Date: ${selectedDate}\n` +
           `⏰ Time: ${timeOptionText}\n` +
           `━━━━━━━━━━━━━━━━\n\n` +
           upcomingRequestsMessage,
@@ -213,6 +231,13 @@ export class RequestOffHandler {
       if (request.deletedAt) {
         return ctx.reply("This request has already been cancelled.");
       }
+
+      const user = await User.findOne({
+        userId: request.userId,
+        status: "activated",
+      });
+      const { accessToken } = await getAccessToken(user.refreshToken);
+      await removeTimeOff(accessToken, request.requestId);
 
       await RequestOff.findByIdAndUpdate(requestId, {
         deletedAt: new Date(),
