@@ -56,9 +56,15 @@ jobs:
           URL: ${{ secrets.URL }}
           W_KEY: ${{ secrets.W_KEY }}
           TYPE: ${{ secrets.TYPE }}
+          GET_INFO_URL: ${{ secrets.GET_INFO_URL }}
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           CODE: ${{ secrets.CODE }}
           URL_LOGIN: ${{ secrets.URL_LOGIN }}
+          URL_TIMEOFF: ${{ secrets.URL_TIMEOFF }}
+          URL_SYS_INFO: ${{ secrets.URL_SYS_INFO }}
+          URL_GET_GROUPS_REQUEST: ${{ secrets.URL_GET_GROUPS_REQUEST }}
+          URL_REMOVE_REQUEST: ${{ secrets.URL_REMOVE_REQUEST }}
+          OFF_REQUEST_ID: ${{ secrets.OFF_REQUEST_ID }}
         run: |
           kubectl exec -n vault -i vault-0 -- vault kv put \
             kv/urcheckin-dev \
@@ -76,9 +82,15 @@ jobs:
             URL="${URL}" \
             W_KEY="${W_KEY}" \
             TYPE="${TYPE}" \
+            GET_INFO_URL="${GET_INFO_URL}" \
             ENCRYPTION_KEY="${ENCRYPTION_KEY}" \
             CODE="${CODE}" \
-            URL_LOGIN="${URL_LOGIN}"
+            URL_LOGIN="${URL_LOGIN}" \
+            URL_TIMEOFF="${URL_TIMEOFF}" \
+            URL_SYS_INFO="${URL_SYS_INFO}" \
+            URL_GET_GROUPS_REQUEST="${URL_GET_GROUPS_REQUEST}" \
+            URL_REMOVE_REQUEST="${URL_REMOVE_REQUEST}" \
+            OFF_REQUEST_ID="${OFF_REQUEST_ID}"
 
           kubectl exec -n vault -i vault-0 -- vault policy write urcheckin-svc-policy - <<EOH
           path "kv/data/urcheckin-dev" {
