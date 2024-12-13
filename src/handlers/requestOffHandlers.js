@@ -143,7 +143,7 @@ export class RequestOffHandler {
       const requestOffResult = await requestTimeOff(
         accessToken,
         `${userName}-${dateRequest}-Xin OFF phép`,
-        followers.join(","),
+        followers.join(" @"),
         manager,
         dateRequest,
         TIME_OFF_TYPE[timeOption],
