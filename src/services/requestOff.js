@@ -1,6 +1,7 @@
 import axios from "axios";
 import FormData from "form-data";
 import dotenv from "dotenv";
+import { TIME_OFF_TYPE } from "../utils/constants.js";
 
 dotenv.config();
 
@@ -9,20 +10,43 @@ export async function requestTimeOff(
   title,
   followers,
   manager,
-  date
+  date,
+  type,
+  groupId
 ) {
   console.log({ accessToken, title, followers, manager, date }, "adsf");
   const formData = new FormData();
+
+  let titleExtend = "";
+  switch (type) {
+    case TIME_OFF_TYPE.FULL_DAY: {
+      formData.append("shift-0-0", "on");
+      formData.append("shift-0-1", "on");
+      break;
+    }
+    case TIME_OFF_TYPE.MORNING: {
+      formData.append("shift-0-0", "on");
+      formData.append("shift-0-1", "off");
+
+      titleExtend = " sáng";
+      break;
+    }
+    case TIME_OFF_TYPE.AFTERNOON: {
+      formData.append("shift-0-0", "off");
+      formData.append("shift-0-1", "on");
+
+      titleExtend = " chiều";
+      break;
+    }
+  }
 
   formData.append("__code", "mobile");
   formData.append("leaveFund", "annual");
   formData.append("key", "date-0");
   formData.append("value", "1");
-  formData.append("shift-0-0", "on");
-  formData.append("shift-0-1", "on");
-  formData.append("group_id", `${process.env.OFF_REQUEST_ID}`); //TODO: using variable
+  formData.append("group_id", String(groupId));
   formData.append("id", "");
-  formData.append("name", title);
+  formData.append("name", title + titleExtend);
   formData.append("content", "");
   formData.append("owners", "");
   formData.append("followers", followers);

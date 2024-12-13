@@ -9,6 +9,7 @@ import { getSysInfo } from "../services/getSysInfo.js";
 import { getGroupsRequest } from "../services/getGroupsRequest.js";
 import { requestTimeOff } from "../services/requestOff.js";
 import { removeTimeOff } from "../services/removeRequest.js";
+import { TIME_OFF_TYPE } from "../utils/constants.js";
 
 export class RequestOffHandler {
   static async handleRequestOff(ctx, telegramService) {
@@ -112,12 +113,6 @@ export class RequestOffHandler {
         );
       }
 
-      const timeOffTypeMap = {
-        morning: "MORNING",
-        afternoon: "AFTERNOON",
-        fullday: "FULL_DAY",
-      };
-
       const existingRequest = await telegramService.getExistingRequest(
         userId,
         selectedDate
@@ -147,16 +142,18 @@ export class RequestOffHandler {
       const dateRequest = `${day}/${month}/${year}`;
       const requestOffResult = await requestTimeOff(
         accessToken,
-        `${userName}-${dateRequest}-Xin OFF phép năm`,
+        `${userName}-${dateRequest}-Xin OFF phép`,
         followers.join(","),
         manager,
-        dateRequest
+        dateRequest,
+        TIME_OFF_TYPE[timeOption],
+        process.env.OFF_REQUEST_ID
       );
       const requestId = requestOffResult?.timeoff?.id;
 
       if (existingRequest) {
         await RequestOff.findByIdAndUpdate(existingRequest._id, {
-          timeOffType: timeOffTypeMap[timeOption],
+          timeOffType: TIME_OFF_TYPE[timeOption],
           requestId,
         });
       } else {
@@ -164,7 +161,7 @@ export class RequestOffHandler {
           userId,
           requestId,
           dateOff: new Date(selectedDate),
-          timeOffType: timeOffTypeMap[timeOption],
+          timeOffType: TIME_OFF_TYPE[timeOption],
         });
       }
 
