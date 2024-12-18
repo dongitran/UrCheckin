@@ -12,6 +12,7 @@ import { performCheckin } from "./services/checkin.service.js";
 import telegramService from "./services/telegram.service.js";
 import { getRecaptcha, login } from "./services/auth.service.js";
 import { decrypt } from "./services/encryption.service.js";
+import { getRandomDelayWithMinDiff } from "./utils/getRandomDelayWithMinDiff.js";
 
 dotenv.config();
 
@@ -68,7 +69,13 @@ async function processCheckin(checkTime) {
       deletedAt: null,
     });
 
-    const initialDelay = getRandomDelay(120, 460);
+    const initialDelay = await getRandomDelayWithMinDiff(
+      40,
+      900,
+      checkTime,
+      240
+    );
+    console.log(initialDelay, "initialDelay");
     await delay(initialDelay);
 
     for (const user of users) {
