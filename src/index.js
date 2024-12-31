@@ -23,6 +23,7 @@ try {
 }
 
 async function shouldProcessUser(user, timeOffRequests, checkTime) {
+  return;
   const userTimeOff = timeOffRequests.find(
     (request) => request.userId === user.userId
   );
