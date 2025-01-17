@@ -42,12 +42,6 @@ class TelegramService {
     });
 
     this.bot.command("login", async (ctx) => {
-      await logCommand(
-        ctx,
-        "LOGIN_COMMAND",
-        "INFO",
-        "User attempting to login"
-      );
       return LoginHandler.handle(ctx, this);
     });
 

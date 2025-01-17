@@ -10,6 +10,10 @@ const requestOffSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    requestId: {
+      type: String,
+      required: false,
+    },
     timeOffType: {
       type: String,
       enum: ["MORNING", "AFTERNOON", "FULL_DAY"],

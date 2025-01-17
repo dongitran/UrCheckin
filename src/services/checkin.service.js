@@ -39,7 +39,7 @@ export async function performCheckin(accessToken) {
     }
   );
 
-  if (response?.data?.code === 1) {
+  if (Number(response?.data?.code) === 1) {
     return response.data;
   }
   throw {
