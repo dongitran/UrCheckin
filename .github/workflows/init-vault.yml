@@ -1,0 +1,118 @@
+name: Init Vault
+
+on:
+  push:
+    branches:
+      - init-vault
+  workflow_dispatch:
+
+jobs:
+  send-notification-started:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.GH_ACTION_TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.GH_ACTION_TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *🚀 UrCheckin - Init Vault *  🏃‍♂️${{ github.run_number }}
+
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Started 🚁️️️️️️🚁️️️️️️🚁️️️️️️🚁️️️️️️
+
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up kubectl
+        uses: azure/k8s-set-context@v1
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG }}
+          version: "latest"
+
+      - name: Apply Kubernetes deployment
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          API_GET_REFRESH_TOKEN_BASE_URL: ${{ secrets.API_GET_REFRESH_TOKEN_BASE_URL }}
+          API_GET_CHECKIN_BASE_URL: ${{ secrets.API_GET_CHECKIN_BASE_URL }}
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+          LAT: ${{ secrets.LAT }}
+          LNG: ${{ secrets.LNG }}
+          DEVICE_ID: ${{ secrets.DEVICE_ID }}
+        run: |
+          kubectl exec -n vault -i vault-0 -- vault kv put \
+            kv/urcheckin-dev \
+            MONGODB_URI="${MONGODB_URI}" \
+            API_GET_REFRESH_TOKEN_BASE_URL="${API_GET_REFRESH_TOKEN_BASE_URL}" \
+            API_GET_CHECKIN_BASE_URL="${API_GET_CHECKIN_BASE_URL}" \
+            CLIENT_ID="${CLIENT_ID}" \
+            LAT="${LAT}" \
+            LNG="${LNG}" \
+            DEVICE_ID="${DEVICE_ID}"
+
+          kubectl exec -n vault -i vault-0 -- vault policy write urcheckin-svc-policy - <<EOH
+          path "kv/data/urcheckin-dev" {
+            capabilities = ["read"]
+          }
+          EOH
+
+          kubectl exec -n vault -i vault-0 -- vault write auth/kubernetes/role/urcheckin-dev \
+            bound_service_account_names=urcheckin-dev-auth \
+            bound_service_account_namespaces=urcheckin \
+            policies=urcheckin-svc-policy \
+            ttl=72h
+
+  send-notification-deploy-failed:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ failure() && needs.deploy.result == 'failure' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.GH_ACTION_TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.GH_ACTION_TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *❌ UrCheckin - Init Vault *  🏃‍♂️${{ github.run_number }}
+
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Deploy Failed!!!
+            😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️😐️️️️️️
+
+  send-notification-successful:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ success() && needs.deploy.result == 'success' }}
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.GH_ACTION_TELEGRAM_GROUP_DEPLOYMENTS }}
+          token: ${{ secrets.GH_ACTION_TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          disable_web_page_preview: true
+          message: |
+            *🎉 UrCheckin - Init Vault *  🏃‍♂️${{ github.run_number }}
+
+            *👤 Committer:* [${{ github.actor }}](https://github.com/${{ github.actor }})
+            *📝 Commit message:* ${{ github.event.commits[0].message }}
+            *📦 Repository:* ${{ github.repository }}
+            *🔍 See changes:* [View changes](https://github.com/${{ github.repository }}/commit/${{github.sha}})
+
+            Successful
+            🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️🚀️️️️️️
