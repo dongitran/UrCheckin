@@ -125,6 +125,7 @@ export class RequestOffHandler {
         await removeTimeOff(accessToken, existingRequest.requestId);
       }
 
+      /*
       const sysInfo = await getSysInfo(accessToken);
       const userName = sysInfo?.viewer?.name;
       const manager = sysInfo?.viewer?.manager[0];
@@ -133,6 +134,7 @@ export class RequestOffHandler {
           "❌ Error creating time-off request. Please contact @dongtranthien for assistance."
         );
       }
+      
       const groupsRequest = await getGroupsRequest(accessToken);
       const group = groupsRequest?.groups.find(
         (item) => String(item.id) === process.env.OFF_REQUEST_ID
@@ -150,16 +152,17 @@ export class RequestOffHandler {
         process.env.OFF_REQUEST_ID
       );
       const requestId = requestOffResult?.timeoff?.id;
+      */
 
       if (existingRequest) {
         await RequestOff.findByIdAndUpdate(existingRequest._id, {
           timeOffType: TIME_OFF_TYPE[timeOption],
-          requestId,
+          //requestId,
         });
       } else {
         await RequestOff.create({
           userId,
-          requestId,
+          //requestId,
           dateOff: new Date(selectedDate),
           timeOffType: TIME_OFF_TYPE[timeOption],
         });
