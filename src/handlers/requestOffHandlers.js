@@ -164,7 +164,7 @@ export class RequestOffHandler {
           userId,
           //requestId,
           dateOff: new Date(selectedDate),
-          timeOffType: TIME_OFF_TYPE[timeOption],
+          timeOffType: TIME_OFF_TYPE[String(timeOption).toUpperCase()],
         });
       }
 
