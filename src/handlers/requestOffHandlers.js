@@ -122,7 +122,7 @@ export class RequestOffHandler {
       const { accessToken } = await getAccessToken(user.refreshToken);
 
       if (existingRequest) {
-        await removeTimeOff(accessToken, existingRequest.requestId);
+        // await removeTimeOff(accessToken, existingRequest.requestId);
       }
 
       /*
@@ -156,7 +156,7 @@ export class RequestOffHandler {
 
       if (existingRequest) {
         await RequestOff.findByIdAndUpdate(existingRequest._id, {
-          timeOffType: TIME_OFF_TYPE[timeOption],
+          timeOffType: TIME_OFF_TYPE[String(timeOption).toUpperCase()],
           //requestId,
         });
       } else {
