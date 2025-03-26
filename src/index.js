@@ -175,7 +175,7 @@ async function processCheckin(checkTime) {
 
 connectDB();
 
-cron.schedule("0 30 9 * * 1-5", () => processCheckin("9:15"), {
+cron.schedule("0 10 10 * * 1-5", () => processCheckin("9:15"), {
   scheduled: true,
   timezone: "Asia/Ho_Chi_Minh",
 });
