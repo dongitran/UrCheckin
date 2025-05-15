@@ -175,24 +175,4 @@ async function processCheckin(checkTime) {
 
 connectDB();
 
-cron.schedule("0 30 9 * * 1-5", () => processCheckin("9:15"), {
-  scheduled: true,
-  timezone: "Asia/Ho_Chi_Minh",
-});
-
-cron.schedule("0 55 11 * * 1-5", () => processCheckin("11:55"), {
-  scheduled: true,
-  timezone: "Asia/Ho_Chi_Minh",
-});
-
-cron.schedule("0 10 13 * * 1-5", () => processCheckin("13:10"), {
-  scheduled: true,
-  timezone: "Asia/Ho_Chi_Minh",
-});
-
-cron.schedule("0 0 18 * * 1-5", () => processCheckin("18:10"), {
-  scheduled: true,
-  timezone: "Asia/Ho_Chi_Minh",
-});
-
 console.log("UrCheckin started");
