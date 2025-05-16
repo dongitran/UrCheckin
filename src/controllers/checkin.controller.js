@@ -13,6 +13,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 export const handleCheckin = async (req, res) => {
+  return res.status(400).json({
+    success: false,
+  });
+
   try {
     const { email, key } = req.body;
 
