@@ -1,7 +1,7 @@
-import cron from "node-cron";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { parse, stringify } from "flatted";
+import express from "express"; // Add Express
 import connectDB from "./config/database.js";
 import User from "./models/user.model.js";
 import Log from "./models/log.model.js";
@@ -13,8 +13,21 @@ import telegramService from "./services/telegram.service.js";
 import { getRecaptcha, login } from "./services/auth.service.js";
 import { decrypt } from "./services/encryption.service.js";
 import { getRandomDelayWithMinDiff } from "./utils/getRandomDelayWithMinDiff.js";
+import apiRoutes from "./routes/api.routes.js"; 
 
 dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use("/api", apiRoutes);
+
+app.listen(PORT, () => {
+  console.log(`API server running on port ${PORT}`);
+});
 
 try {
   telegramService;
